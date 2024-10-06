@@ -1,35 +1,39 @@
 % Задание №1.
 Persons = [{person, 1, "Bob", 23, male}, {person, 2, "Kate", 20, female}, {person, 3, "Jack", 34, male}, {person, 4, "Nata", 54, female}].
-NewPerson = {person, 5, "Mike", 13, male}.
-[Persons | [NewPerson]].
-% Создает список, в котором первый элемент это список, содержащийся в переменной Persons, а второй элемент, список, созданный на основе кортежа, содержащегося в переменной NewPerson.
-[NewPerson | Persons].
-% Создает список, в первый элементов которого записывает данные из кортежа NewPerson, после чего добавляет данные из списка Persons.
-NewPerson ++ Persons.
-% Возвращает ошибку, т.к. переменные Persons и NewPerson содержат разные типы данных.
-[NewPerson] ++ Persons.
-% Сначала создает список на основе кортежа NewPerson, что позволяет добавить в его конец список, содержащийся в переменной Persons.
-[NewPerson] + Persons.
-% Возвращает ошибку, т.к. арифметическое сложение не применимо для списков.
+[First | Rest] = Persons.
+First.
+Rest.
+%Выполнено разделение значений, содержащихся в списке Persons. В переменную First записалось значение первого элемента списка Persons, в переменную Rest записался список из остальных значений списка Persons.
+[Second | Rest1] = Rest.
+26> Second.
+27> Rest1.
+%Операция аналогичная первому разделению списка, только на этот раз для списка Rest.
+[Third, Fourth | Rest2] = Rest1.
+Third.
+Fourth.
+Rest2.
+%В переменные Third и Fourth записались значения первого и второго элементов списка Rest1, в переменную Rest2 - пустой список, указывающий в списке Rest1 на его конец.
 Persons.
-% Список Persons действительно не изменился:)
+%Исходный список действительно не поменялся:)
 
 % Задание №2.
-+10.
--10.
-1 + 11.
-8 / 2.
-9 div 2.
-7 rem 2.
-2#10 band 2#01.
-2#10 bor 2#01.
-a + 10.
-% Возвращает ошибку, т.к. к атомам не применима операция сложения.
-1 bsl (1 bsl 64).
-% Возвращает ошибку, т.к. итог операции слишком большое число.
+rr("person.hrl").
+f(Persons).
+Persons = [#person{id = 1, name = "Bob", age = 23, gender = male}, #person{id = 2, name = "Kate", age = 20, gender = female}, #person{id = 3, name = "Jack", age = 34, gender = male}, #person{id = 4, name = "Nata", age = 54, gender = female}].
+[FirstPerson | _] = Persons.
+FirstPerson.
+%Переменной FirstPerson присвоено значение первого элемента списка Persons.
+[_, SecondPerson, _, _] = Persons.
+SecondPerson.
+%Переменной SecondPerson присвоено значение второго элемента списка Persons.
+[_, _, SecondPerson | _] = Persons.
+%Т.к. переменной SecondPerson уже присвоено значение, то происходит сопоставление списков. При этом сравниваются только значения третьих элементов списков. Выдается сообщение, что они не совпадают.
+SecondName = SecondPerson#person.name.
+SecondAge = SecondPerson#person.age.
+%Переменным присваеваются значения на основе данных переменной SecondPerson, соответствующие позиции с указанным ключом/именем.
+Persons.
+SecondPerson#person{age = 21}.
+Persons.
+SecondPerson.
 
-% Задание №3.
-"Night".
-[78, 105, 103, 104, 116].
-[$N, $i, $g, $h, $t].
-<<"Night">>.
+% Задание №3 повторяет задание №3 из первой домашней работы, вероятно, это ошибка.
