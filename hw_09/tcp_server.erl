@@ -1,6 +1,7 @@
 -module(tcp_server).
 -export([start/0]).
 
+
 start() ->
     case gen_tcp:listen(1234, [binary, {active, false}, {reuseaddr, true}]) of
         {ok, LSocket} ->
@@ -19,7 +20,6 @@ handle_client(Socket) ->
     {ok, {IP, _Port}} = inet:peername(Socket),
     case gen_tcp:recv(Socket, 0) of
         {ok, Data} ->
-            io:format("Получено:~n ~s ~n", [Data]),
             Respond = handle_http_req(Data, IP),
             gen_tcp:send(Socket, Respond),
             gen_tcp:close(Socket);
