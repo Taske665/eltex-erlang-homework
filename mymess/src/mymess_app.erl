@@ -9,6 +9,7 @@ start(_StartType, _StartArgs) ->
     application:ensure_all_started(cowboy),
     application:ensure_all_started(sasl),
     mymess_user_storage:init(),
+    mymess_rooms_storage:init(),
     mymess_online_user_storage:init(),
     mymess_send_later:init(),
     mymess_msg_server:start(),

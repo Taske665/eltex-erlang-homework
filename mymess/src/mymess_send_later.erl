@@ -1,5 +1,5 @@
 -module(mymess_send_later).
--export([init/0, save_msg/3, send_msg/1]).
+-export([init/0, save_msg/2, send_msg/1]).
 
 -record(send_later_msg, {username, msg_list}).
 
@@ -20,13 +20,13 @@ init() ->
         end.
 
 %%Сохранение сообщения для офлайн пользователя
-save_msg(MsgType, Username, Message) ->
+save_msg(Username, Message) ->
     F = fun() ->
         case mnesia:read(send_later_msg, Username) of
             [] ->
-                mnesia:write(#send_later_msg{username = Username, msg_list = [{MsgType, Message}]});
+                mnesia:write(#send_later_msg{username = Username, msg_list = [Message]});
             [{send_later_msg, Username, Msg_list}] ->
-                mnesia:write(#send_later_msg{username = Username, msg_list = Msg_list ++ [{MsgType, Message}]});
+                mnesia:write(#send_later_msg{username = Username, msg_list = Msg_list ++ [Message]});
             _ ->
             io:format("{mymess_send_later, save_msg/3} Mnesia error in save_msg/3~n", []),
             mnesia:abort(invalid_record)
@@ -47,16 +47,16 @@ send_msg(Username) ->
 
 send_to_msg_server(Username, Msg_list) ->
     case Msg_list of
-        [{MsgType, Message}] ->
-            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p, ~p}~n", [MsgType, Username, Message]),
-            msg_server ! {send, MsgType, Username, Message},
+        [Message] ->
+            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
+            msg_server ! {send, Username, Message},
             F = fun() -> 
                 mnesia:delete({send_later_msg, Username}) 
                 end,
                 mnesia:transaction(F);
-        [{MsgType, Message} | Tail] ->
-            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p, ~p}~n", [MsgType, Username, Message]),
-            msg_server ! {send, MsgType, Username, Message},
-            send_to_msg_server(Username, Tail);
+        [Message | Rest_messages] ->
+            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
+            msg_server ! {send, Username, Message},
+            send_to_msg_server(Username, Rest_messages);
         _ -> ok
     end.
