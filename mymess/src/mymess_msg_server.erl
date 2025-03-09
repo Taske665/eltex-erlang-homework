@@ -12,11 +12,14 @@ start() ->
 loop() ->
     receive
         {send, To, Message} ->
+            %%Проверка онлайн ли получатель
             case mymess_online_user_storage:find_user(To) of
                 {ok, Pid} ->
+                    %%Отправка сообщения в ws_handler, связанный с онлайн получателем
                     io:format("{mymess_msg_server, loop/0} Sending message to ~p: ~p~n", [To, Message]),
                     Pid ! {send, Message};
                 not_found ->
+                    %%Сохранение сообщений для оффлайн получателей для отправки позднее
                     case mymess_user_storage:find_user(To) of
                         ok -> 
                             io:format("{mymess_msg_server, loop/0} User ~p is offline~n", [To]),

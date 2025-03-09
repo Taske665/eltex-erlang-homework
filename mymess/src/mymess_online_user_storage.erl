@@ -3,7 +3,7 @@
 
 -define(USER_DB, online_user_db).
 
-%% Инициализация ETS таблицы
+%% Инициализация ETS таблицы для регистрации пользователей онлайн
 init() ->
     case ets:info(?USER_DB) of
         undefined -> 
@@ -19,14 +19,6 @@ register_user(Username, Pid) ->
     case ets:insert(?USER_DB, {Username, Pid}) of
         true -> 
             io:format("{mymess_online_user_storage, register_user/1} User ~p successfully added to online user storage with PID ~p~n", [Username, Pid]);
-%%            case mymess_send_later:send_msg(Username) of
-%%                not_found ->
-%%                    io:format("No saved messages for ~p~n", [Username]);
-%%                ok ->
-%%                    io:format("Saved messages send to ~p~n", [Username]);
-%%                _ ->
-%%                    ok
-%%            end;
         false -> 
             io:format("{mymess_online_user_storage, register_user/0} ETS error for user ~p~n", [Username])
     end.
@@ -42,17 +34,7 @@ find_user(Username) ->
             not_found
     end.
 
-%% Поиск пользователя по Pid
-%%find_by_pid(Pid) ->
-%%    case ets:match(?USER_DB, {"$1", Pid}) of
-%%        [] -> 
-%%            io:format("User with PID ~p not found~n", [Pid]),
-%%            not_found;
-%%        [[Username]] -> 
-%%            {ok, Username}
-%%    end.
-
-%% Удаление пользователя по Pid из ETS
+%% Удаление пользователя из ETS
 remove_user(Username) ->
     case ets:lookup(?USER_DB, Username) of
         [] -> 

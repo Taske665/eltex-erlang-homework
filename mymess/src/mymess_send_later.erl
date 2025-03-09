@@ -3,7 +3,7 @@
 
 -record(send_later_msg, {username, msg_list}).
 
-%% Инициализация Mnesia и создание таблицы
+%% Инициализация Mnesia и создание таблицы для хранения сообщений для оффлайн пользователей
 init() ->
     mnesia:create_schema([node()]),
     mnesia:start(),
@@ -34,28 +34,30 @@ save_msg(Username, Message) ->
         end,
     mnesia:transaction(F).
 
+%%Проверка наличия сохранненных сообщений для пользователя
 send_msg(Username) ->
     F = fun() -> mnesia:read(send_later_msg, Username) end,
     case mnesia:transaction(F) of
         {atomic, []} -> not_found;
         {atomic, [{send_later_msg, Username, Msg_list}]} ->
-            io:format("{mymess_send_later, send_msg/1} Msg_list is: ~p~n", [Msg_list]),
+            %io:format("{mymess_send_later, send_msg/1} Msg_list is: ~p~n", [Msg_list]),
             send_to_msg_server(Username, Msg_list);
             _ ->
                 io:format("{mymess_send_later, send_msg/1} Mnesia error in send_msg/1~n", [])
     end.
 
+%%Поочередная отправка сохранненых сообщений пользователю и последующее удаление их из БД
 send_to_msg_server(Username, Msg_list) ->
     case Msg_list of
         [Message] ->
-            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
+            %io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
             msg_server ! {send, Username, Message},
             F = fun() -> 
                 mnesia:delete({send_later_msg, Username}) 
                 end,
                 mnesia:transaction(F);
         [Message | Rest_messages] ->
-            io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
+            %io:format("{mymess_send_later, send_to_msg_server/2}: {send, ~p, ~p}~n", [Username, Message]),
             msg_server ! {send, Username, Message},
             send_to_msg_server(Username, Rest_messages);
         _ -> ok

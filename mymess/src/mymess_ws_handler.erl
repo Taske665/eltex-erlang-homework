@@ -7,7 +7,6 @@
 init(Req0, State) ->
         Qs = cowboy_req:parse_qs(Req0),
     TokenParam = proplists:get_value(<<"token">>, Qs),
-
     case TokenParam of
         undefined ->
             %% Без токена соединение закрывается
@@ -15,12 +14,15 @@ init(Req0, State) ->
             {shutdown, Req1, State};
         TokenValue ->
             %% Проверка токена
-            case verify_token(binary_to_list(TokenValue)) of
+            case verify_token(TokenValue) of
                 {ok, Username} ->
                     %% Если токен валиден, то устанавливается соединение по WS
                     io:format("{mymess_ws_handler, init/0} WebSocket connected for user: ~p~n", [Username]),
+                    %%Получаем PID процесса, на котором поддерживается соединение с клиентом
                     Pid = maps:get(pid, Req0, undefined),
+                    %%Регистрация пользователя в статусе онлайн
                     mymess_online_user_storage:register_user(binary_to_list(Username), Pid),
+                    %%Отправка сохранных за период оффлайн сообщений при их наличии
                     spawn(fun() -> mymess_send_later:send_msg(binary_to_list(Username)) end),
                     {cowboy_websocket, Req0, #{username => Username}};
                 {error, Reason} ->
@@ -41,18 +43,19 @@ websocket_handle({text, Msg}, State) ->
         Json ->
             io:format("JSON is: ~p~n", [Json]),
             handle_json_message(Json, State)
-    catch 
+    catch
         _:_ ->
             io:format("Invalid JSON~n", []),
             {reply, {text, <<"{\"error\": \"Invalid JSON\"}">>}, State}
     end;
 
+%%Прочие сообщения
 websocket_handle(_Data, State) ->
     {ok, State}.
 
 %% Обработка JSON-сообщений
-%% Клиент отправил сообщение для другого пользователя
 
+%% Клиент отправил сообщение для другого пользователя
 handle_json_message(#{<<"msg_type">> := <<"user">>, <<"to">> := To, <<"message">> := MsgText}, State) ->
     %% Передаем имя получателя и текст сообщения серверу
     From = maps:get(username, State, undefined),
@@ -91,15 +94,17 @@ handle_json_message(#{<<"msg_type">> := <<"room">>, <<"to">> := Roomname, <<"mes
     Userslist = mymess_rooms_storage:get_userslist(binary_to_list(Roomname)),
     send2room(binary_to_list(From), Userslist, Message, State);
 
+%%Прочие сообщения
 handle_json_message(_Json, State) ->
     io:format("{mymess_ws_handler, handle_json_message/2} Unknown JSON format received~n"),
     {reply, {text, <<"{\"error\": \"Unknown message format\"}">>}, State}.
 
-%% Обработка сообщений из других процессов (например, отправка данных клиенту)
+%% Обработка сообщений из других процессов и отправка полученных сообщений клиенту
 websocket_info({send, Msg}, State) ->
     io:format("{mymess_ws_handler, websocket_info/2} Handler has got message: ~p, PID_info: ~p~n", [Msg, self()]),
     {reply, {text, Msg}, State};
 
+%%Прочие сообщения
 websocket_info(_Info, State) ->
     io:format("{mymess_ws_handler, websocket_info/2} Unknown message format for ws_handler"),
     {ok, State}.
@@ -110,6 +115,7 @@ terminate(_Reason, _Req, State) ->
         true -> 
             Username = maps:get(username, State),
             io:format("{mymess_ws_handler, terminate/3} WebSocket connection closed for user ~p~n", [Username]),
+            %%Удаление пользователя из БД онлайн пользователей
             mymess_online_user_storage:remove_user(binary_to_list(Username)),
             ok;
         _ -> ok
@@ -117,21 +123,29 @@ terminate(_Reason, _Req, State) ->
 
 %% Проверка валидности токена
 verify_token(Token) ->
-    try
-        %% Декодирование токена
-        Decoded = base64:decode(Token),
-        %% Извление Username и Password
-        [Username, Password] = binary:split(Decoded, <<":">>),
-        %% Проверка аутентификации
-        case mymess_user_storage:authenticate(binary_to_list(Username), binary_to_list(Password)) of
-            true ->
-                {ok, Username};
-            false ->
-                {error, invalid_credentials}
-        end
-    catch
-        _:_ ->
-            {error, invalid_token}
+    %% Формируется кортеж для верификации функцией jose:verify
+    Signed = {#{alg => jose_jws_alg_hmac}, Token},
+    {ok, Secret} = application:get_env(mymess, jwt_secret),
+    % JSON Web Key
+    JWK = #{
+        <<"kty">> => <<"oct">>,
+        <<"k">> => jose_base64url:encode(list_to_binary(Secret))
+        },
+    %%Верификация
+    case jose_jwt:verify(JWK, Signed) of
+        {false, _} ->
+            {error, invalid_token};
+        {true, {jose_jwt, Claims}, _} ->
+            Username = maps:get(<<"username">>, Claims, undefined),
+            Password = maps:get(<<"password">>, Claims, undefined),
+            case mymess_user_storage:authenticate(binary_to_list(Username), binary_to_list(Password)) of
+                true ->
+                    {ok, Username};
+                false ->
+                    {error, invalid_credentials}
+            end;
+        Err ->
+            io:format("Wrong pattern for verify, result is: ~p~n", [Err])
     end.
 
 %% Отправка сообщения на маршрутизацию серверу сообщений
